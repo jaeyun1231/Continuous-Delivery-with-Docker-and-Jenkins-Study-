@@ -1,0 +1,58 @@
+FROM ubuntu:20.04
+# 비대화 모드 설정 (필수, apt-get에서 사용자 입력 방지)
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 에디터 설치
+RUN apt install vim
+
+# Git 설치
+RUN apt install git
+
+# Install ROS2
+# 필수 패키지 업데이트 및 설치
+RUN apt-get update && \
+    apt-get install -y \
+    curl \
+    gnupg2 \
+    lsb-release \
+    software-properties-common
+
+# ROS2 GPG 키 및 소스 리스트 추가
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
+    sh -c 'echo "deb http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" > /etc/apt/sources.list.d/ros2-latest.list'
+
+# ROS2 설치를 위한 패키지 업데이트
+RUN apt-get update && \
+    apt-get install -y \
+    ros-foxy-desktop
+
+# colcon 및 ROS2 필수 도구 설치
+RUN apt-get install -y \
+    python3-colcon-common-extensions \
+    python3-rosdep \
+    ros-foxy-ament-cmake \
+    python3-argcomplete
+
+# ROS2 환경 설정
+RUN rosdep init && \
+    rosdep update
+
+# Bash 환경설정을 위해 ROS2 설정 파일 소스
+RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc 
+RUN mkdir -p ~/robot_ws/src
+RUN cd ~/robot_ws/src && git clone -b foxy https://github.com/ros2/examples.git
+
+# Install Jenkins
+RUN apt-get install -y wget
+RUN wget -O /usr/share/keyrings/jenkins-keyring.asc \
+    https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+RUN echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+  https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+  /etc/apt/sources.list.d/jenkins.list > /dev/nullecho "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc]" \
+    https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+    /etc/apt/sources.list.d/jenkins.list > /dev/null
+RUN apt-get update
+RUN apt-get install -y fontconfig openjdk-17-jre
+RUN apt-get install -y jenkins
+
+ENTRYPOINT jenkins
