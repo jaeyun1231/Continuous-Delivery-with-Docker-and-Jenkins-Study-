@@ -1,0 +1,63 @@
+pipeline {
+    agent none  // 전체 파이프라인에서 에이전트를 사용하지 않음
+    stages {
+        stage('Source Code Build') {
+            agent { label 'master' }  // 마스터에서 빌드 수행
+            steps {
+                sh '''
+                    #!/bin/bash
+                    . /opt/ros/foxy/setup.bash                
+                    colcon build
+                '''  // 빌드 명령
+            }
+        }
+        stage('Move Directory')
+        {
+            agent {label 'master'}
+            steps{
+                sh'''
+                    #!/bin/bash
+                    rm -rf robot_ws/
+                    mkdir robot_ws
+                    cp -r build/ robot_ws/
+                    cp -r install/ robot_ws/
+                    cp -r src/ robot_ws/
+                '''
+            }
+        }
+        stage('Docker Build') {
+            agent { label 'master'}
+            steps {
+                sh '''
+                    #!/bin/bash
+                    docker build -t 192.168.0.29:5000/ipc_image:1.0 .
+                '''
+            }
+        }
+        stage('Docker Push')
+        {
+            agent{ label 'master'}
+            steps{
+                sh'''
+                    #!/bin/bash
+                    docker push 192.168.0.29:5000/ipc_image:1.0
+                '''
+            }
+        }
+        stage('Parallel Deploy') {
+            parallel {
+                stage('Deploy to Server 1') {
+                    agent{label 'duck_ssh_laptop'}
+                    steps {
+                        sh '''
+                            #!/bin/bash
+                            docker pull 192.168.0.29:5000/ipc_image:1.0
+                            docker run --name docker_test 192.168.0.29:5000/ipc_image:1.0 /bin/bash
+                            docker cp docker_test:/robot_ws ~/docker_ws
+                        '''  // 서버 1에 배포
+                    }
+                }
+            }
+        }
+    }
+}
