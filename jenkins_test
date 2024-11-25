@@ -8,7 +8,7 @@ RUN apt update && apt install -y vim
 # Git 설치
 RUN apt install -y git
 
-# Git 설치
+# SSH 설치
 RUN apt install -y ssh
 
 # Ping 설치
